@@ -1,11 +1,15 @@
 /*
- * Copyright (c) 2014 Jozsef Galajda <jgalajda@pannongsm.hu>
+ * Copyright (c) 2015 Jozsef Galajda <jozsef.galajda@gmail.com>
  * All rights reserved.
  */
 
 /**
  * \file ddlog.c
- * \brief ddlog library implementation
+ * \brief ddlog library main implementation
+ *
+ * This file contains the implementation of the main APIs.
+ * At the beginning of the file one can find the public function implementations,
+ * the second part contains the internal api implementations.
  */
 #include <stdlib.h>
 #include <string.h>
@@ -15,9 +19,9 @@
 #include <stdint.h>
 
 #include "ddlog.h"
-#include "ddlog_internal.h"
-#include "ddlog_debug.h"
-#include "ddlog_display.h"
+#include "private/ddlog_internal.h"
+#include "private/ddlog_debug.h"
+#include "private/ddlog_display.h"
 #include "ddlog_ext.h"
 
 int ddlog_lib_inited = 0;
@@ -43,12 +47,13 @@ __thread uint8_t ddlog_thread_indent_level = 0;
 /**
  * \brief Initializes the ddlog library. Allocates the default log buffer.
  *
- * \param size The maximum number of log messages in the log buffer. 
+ * \param size The maximum number of log messages in the log buffer.
  *             If 0, no default buffer is allocated
- * \return 0 on success, -1 in case of error
+ * \return DDLOG_RET_OK on success, DDLOG_RET_ERR in case of error
  *
  * Initializes the ddlog logging library.
  * If the size parameter is 0, we use the default buffer size.
+ * Initialzes one log buffer which becomes the default buffer.
  */
 int ddlog_init(size_t size){
     int spin_res = 0;
@@ -98,7 +103,8 @@ int ddlog_init(size_t size){
  * \param thread_name The name of the thread
  *
  * If this variable is set, the events logged by the thread
- * will contain the thread name
+ * will contain the thread name. Thi thread name is added to the
+ * log message automatically.
  */
 void ddlog_thread_init(const char* thread_name){
     if (thread_name){
@@ -113,7 +119,8 @@ void ddlog_thread_init(const char* thread_name){
  * \return DDLOG_RET_OK on success. DDLOG_RET_ERR in case of any error
  *
  * Resets all log buffers, cleans the messages. After calling this the
- * buffers will contain no messages.
+ * buffers will contain no messages. Does not delete the log buffers,
+ * only the messages from them.
  */
 int ddlog_reset(void){
     int res = DDLOG_RET_ERR;
@@ -145,7 +152,8 @@ int ddlog_reset(void){
  * \return DDLOG_RET_OK on success. DDLOG_RET_ERR in case of any error
  *
  * Resets the selected log buffer, cleans the messages. After calling this the
- * buffer will contain no messages.
+ * buffer will contain no messages. Does not remove the buffer,
+ * only the log messages are deleted.
  */
 int ddlog_reset_buffer_id(ddlog_buffer_id_t buffer_id){
     int res = DDLOG_RET_ERR;
@@ -162,7 +170,8 @@ int ddlog_reset_buffer_id(ddlog_buffer_id_t buffer_id){
  * \brief Library cleanup function
  *
  * Generic cleanup routine. Frees all allocated memory (events and the buffers).
- * After calling this function no new logs are accepted.
+ * After calling this function no new logs are accepted, the lib has to be
+ * re-initalized if one wants to use it.
  */
 void ddlog_cleanup(void){
     int i = 0, lock_res = 0;
@@ -200,12 +209,15 @@ void ddlog_cleanup(void){
  * \brief Create a new ddlog log buffer
  *
  * \param size The maximum number of log messages in the log buffer.
- * \return the index of the new buffer or -1 in case of any error
+ * \return the index of the new buffer or DDLOG_RET_ERR
+ *         in case of any error
  *
  * Searches for a free buffer and initializes it.
  * Returns with the index of the new buffer. This ID has to be used
  * as a parameter of the ddlog_*_id functions to select the buffer to
- * place the log message into.
+ * place the log message into. If there is no default buffer
+ * created, the default buffer will be set to point to the
+ * newly created buffer.
  */
 ddlog_buffer_id_t ddlog_create_buffer(size_t size){
     int buffer_index = -1;
@@ -215,7 +227,7 @@ ddlog_buffer_id_t ddlog_create_buffer(size_t size){
     if (ddlog_lib_inited){
         lock_res = ddlog_lock_global(0);
         if (lock_res != DDLOG_RET_OK){
-            return -1;
+            return DDLOG_RET_ERR;
         }
 
         /* search for the first free buffer id */
@@ -227,7 +239,7 @@ ddlog_buffer_id_t ddlog_create_buffer(size_t size){
         }
 
         /* there is a free buffer, initialize it */
-        if (buffer_index >= 0) {    
+        if (buffer_index >= 0) {
             if (size == 0 || size > DDLOG_MAX_EVENT_NUM) {
                 size = DDLOG_MAX_EVENT_NUM;
             }
@@ -243,14 +255,14 @@ ddlog_buffer_id_t ddlog_create_buffer(size_t size){
             return buffer_index;
         }
     }
-    return -1;
+    return DDLOG_RET_ERR;
 }
 
 /**
  * \brief Logs a new event to the default log buffer
  *
  * \param message The log message string
- * \return 0 on success, -1 in case of error
+ * \return DDLOG_RET_OK on success, DDLOG_RET_ERR in case of error
  *
  * Creates a new log message in the buffer. This is the short version where
  * only the message is used. All the other parameters will be empty.
@@ -272,11 +284,11 @@ int ddlog_log(const char* message){
  *
  * \param buffer_id The id of the buffer into the message will be placed
  * \param message The log message string
- * \return 0 on success, -1 in case of error
+ * \return DDLOG_RET_OK on success, DDLOG_RET_ERR in case of error
  *
- * Creates a new log message in the buffer with buffer_id. 
+ * Creates a new log message in the buffer with buffer_id.
  * The buffer has to be created with ddlog_create_buffer().
- * This is the short version where only the message is used. 
+ * This is the short version where only the message is used.
  * All the other parameters will be empty.
  */
 int ddlog_log_id(ddlog_buffer_id_t buffer_id, const char* message){
@@ -296,20 +308,23 @@ int ddlog_log_id(ddlog_buffer_id_t buffer_id, const char* message){
  * \param function The name of the function generating the log message (optional)
  * \param line_num The line number in the source file of the log message (optional)
  * \param message The log message string
- * \return 0 if success, -1 in case of any error
+ * \return DDLOG_RET_OK if success, DDLOG_RET_ERR in case of any error
  *
  * Creates a new log event in the buffer. This is the longest version where all the
  * possible parameters can be provided. The message parameter has to be valid
  * (not NULL), any of the rest can be NULL or 0 in case it is not needed in the
  * message.
+ * If no thread name is provided, this api automatically appends the
+ * thread name set with ddlog_thread_init(char*) for the api calling thread
+ * to the log message.
  */
-int ddlog_log_long(const char* thread, 
-        const char* function, 
-        unsigned int line_num, 
+int ddlog_log_long(const char* thread,
+        const char* function,
+        unsigned int line_num,
         const char* message)
 {
     int res = DDLOG_RET_ERR;
-    char * thread_name = NULL;
+    const char * thread_name = thread;
     if (ddlog_lib_inited && ddlog_default_buf && ddlog_enabled && message) {
         if (thread == NULL && ddlog_thread_name[0] != '\0'){
             thread_name = ddlog_thread_name;
@@ -327,31 +342,44 @@ int ddlog_log_long(const char* thread,
  * \param function The name of the function generating the log message (optional)
  * \param line_num The line number in the source file of the log message (optional)
  * \param message The log message string
- * \return 0 if success, -1 in case of any error
+ * \return DDLOG_RET_OK if success, DDLOG_RET_ERR in case of any error
  *
- * Creates a new log event in the buffer with id of buffer_id. 
- * The buffer has to be created first  with ddlog_create_buffer(). 
- * This is the longest version where all the possible parameters can be 
- * provided. The message and buffer_id parameters have to be 
- * valid, any of the rest can be NULL or 0 in case it is not needed in the
+ * Creates a new log event in the buffer with id of buffer_id.
+ * The buffer has to be created first with ddlog_create_buffer().
+ * This is the longest version where all the possible parameters can be
+ * provided. The message and buffer_id parameters have to be
+ * valid, the rest of the paramteres may be NULL or 0 in case it is not needed in the
  * message.
+ * If no valid thread name is provided, the api will automatically append
+ * the thread name set with ddlog_thread_init(char*) for the api calling thread
+ * to the log message.
  */
 int ddlog_log_long_id(
-        ddlog_buffer_id_t buffer_id, 
-        const char* thread, 
-        const char* function, 
-        unsigned int line_num, 
+        ddlog_buffer_id_t buffer_id,
+        const char* thread,
+        const char* function,
+        unsigned int line_num,
         const char* message)
-{    
+{
     int res = DDLOG_RET_ERR;
+    const char* thread_name = thread;
     if (ddlog_lib_inited && ddlog_enabled && message){
         if (buffer_id < DDLOG_MAX_BUF_NUM && ddlog_buffers[buffer_id]){
-            res = ddlog_log_internal(ddlog_buffers[buffer_id], thread, function, line_num, message, NULL, 0, DDLOG_EXT_EVENT_TYPE_NONE);
+            if (thread == NULL && ddlog_thread_name[0] != '\0'){
+                thread_name = ddlog_thread_name;
+            }
+            res = ddlog_log_internal(ddlog_buffers[buffer_id], thread_name, function, line_num, message, NULL, 0, DDLOG_EXT_EVENT_TYPE_NONE);
         }
     }
     return res;
 }
 
+/**
+ * \brief Toggles the logging library state.
+ *
+ * If the current state is enabled, disable the logging.
+ * If the current state is disabled, enable the logging.
+ */
 void ddlog_toggle_status(void){
     if (ddlog_enabled == 1){
         ddlog_disable_internal();
@@ -360,20 +388,39 @@ void ddlog_toggle_status(void){
     }
 }
 
+/**
+ * \brief Returns with the current logging state of the logging lib.
+ * \return 1 if the logging is enabled, 0 othrewise.
+ *
+ * Returns with the current logging state of the lib.
+ */
 int ddlog_get_status(void){
     return ddlog_enabled;
 }
 
+/**
+ * \brief Increases the thread-specific indention level.
+ *
+ * All the log messages are placed into the buffer with the
+ * indention level set for the specific thread, This function can be used
+ * to increase the indention level.
+ */
 void ddlog_inc_indent(void){
     ddlog_thread_indent_level++;
 }
 
+/**
+ * \brief Decreases the thread-specific indention level.
+ *
+ * All the log messages are placed into the buffer with the
+ * indention level set for the specific thread, This function can be used
+ * to decrease the indention level.
+ */
 void ddlog_dec_indent(void){
     if (ddlog_thread_indent_level > 0){
         ddlog_thread_indent_level--;
     }
 }
-
 
 /******************************************************************************
  *
@@ -391,7 +438,7 @@ void ddlog_dec_indent(void){
  * For the first time only one default log buffer will be used/available for the library
  * user, and the user does not have to provide the log buffer when using the libtrary.
  * The internal functions are capable of working with log buffers other than the default one.
- * Because of this all public library function is a wrapper in which 
+ * Because of this all public library function is a wrapper in which
  * the internal function is called with the default log buffer.
  */
 ddlog_buffer_t* ddlog_init_buffer_internal(size_t size){
@@ -441,7 +488,7 @@ ddlog_buffer_t* ddlog_init_buffer_internal(size_t size){
  * \brief Internal library reset function
  *
  * \param log_buffer The log buffer to be reset
- * \return 0 on success, -1 in case of any error
+ * \return DDLOG_RET_OK on success, DDLOG_RET_ERR in case of any error
  *
  * Resets the log buffer provided as a parameter.
  */
@@ -510,7 +557,7 @@ void ddlog_reset_event_internal(ddlog_event_t* event){
  *
  * \param event The event to be cleaned up
  *
- * Generic event cleanup routine. 
+ * Generic event cleanup routine.
  * Free the extended data if allocated for the event.
  */
 void ddlog_cleanup_event_internal(ddlog_event_t* event){
@@ -574,14 +621,14 @@ void ddlog_cleanup_buffer_internal(ddlog_buffer_t* buffer){
  * This function is the workhorse of the log message handling.
  * Gets the next free log buffer position and copies the message into the buffer
  * The buffer is locked only for the pointer handling. As soon as the log message
- * structure for the new message is secured, a temporary pointer is provided, and the 
+ * structure for the new message is secured, a temporary pointer is provided, and the
  * buffer lock is released.
  */
 int ddlog_log_internal(
-        ddlog_buffer_t* log_buffer, 
-        const char* thread, 
-        const char* function, 
-        unsigned int line_num, 
+        ddlog_buffer_t* log_buffer,
+        const char* thread,
+        const char* function,
+        unsigned int line_num,
         const char* message,
         void* ext_data,
         size_t ext_data_size,
@@ -592,7 +639,7 @@ int ddlog_log_internal(
     unsigned char lock_state = 0;
 
     /* grab the buffer lock
-     * get the next free slot and release the lock as soon as possible 
+     * get the next free slot and release the lock as soon as possible
      * if the lock cannot be aquired, return with error
      */
     res = ddlog_lock_buffer_internal(log_buffer);
@@ -613,15 +660,15 @@ int ddlog_log_internal(
     /* Check if the event is not locked, i.e. other thread is not
      * filling the event structure. This could happen if the buffer
      * is wrapped since the event structure is provided to another
-     * thread but that one has not been finished updating the event 
-     * structure. 
+     * thread but that one has not been finished updating the event
+     * structure.
      *
      * The buffer lock is placed to the buffer only during the
-     * next write pointer is selected. If the buffer wraps very 
+     * next write pointer is selected. If the buffer wraps very
      * often, the same events could be used by multiple threads
      * so we have to lock the event structure as well.
      *
-     * After the event is filled with the data, we release the 
+     * After the event is filled with the data, we release the
      * event structure lock.
      *
      * If we happen to get a event which is currently locked,
@@ -688,12 +735,9 @@ int ddlog_log_internal(
  * \brief Internal buffer locking function. Aquire buffer lock.
  *
  * \param buffer Pointer to the buffer to be locked
- * \return 0 in case the lock is aquired, -1 otherwise.
+ * \return DDLOG_RET_OK in case the lock is aquired, DDLOG_RET_ERR otherwise.
  *
- * Tries to lock the buffer. It the buffer is locked by another thread,
- * the block parameter determines how to proceed. If the parameter is >0,
- * we wait until the lock gets free and we can get it. If the parameter is 0,
- * we do not wait for the lock.
+ * Tries to lock the buffer.
  */
 int ddlog_lock_buffer_internal(ddlog_buffer_t* buffer){
     int res = 0;
@@ -707,8 +751,10 @@ int ddlog_lock_buffer_internal(ddlog_buffer_t* buffer){
 /**
  * \brief Internal buffer lock release function. Releases buffer lock
  *
- * \param buffer Pointer to the buffer to be released 
- * \return 0 in case the lock is aquired, -1 otherwise.
+ * \param buffer Pointer to the buffer to be released
+ * \return DDLOG_RET_OK in case the lock is aquired, DDLOG_RET_ERR otherwise.
+ *
+ * Releases the buffer lock.
  */
 int ddlog_unlock_buffer_internal(ddlog_buffer_t* buffer) {
     int res = 0;
@@ -733,7 +779,7 @@ void ddlog_disable_internal(void){
 /**
  * \brief Enable the logging
  *
- * Disables the logging globally.
+ * Enables the logging globally.
  */
 void ddlog_enable_internal(void){
     if (ddlog_enabled == 0){
@@ -743,7 +789,7 @@ void ddlog_enable_internal(void){
 
 /**
  * \brief Global locking function
- * 
+ *
  * \param full_lock (flag) if not 0 lock all buffers as well and disable logging
  * \return DDLOG_RET_OK if all the locking operation were successful,
  *         DDLOG_RET_ERR otherwise.
@@ -830,28 +876,50 @@ int ddlog_unlock_global(void){
 }
 
 
-
+/**
+ * \brief Returns with the maximum number of supported log buffers.
+ * \return The maximum number of buffers supported by the library.
+ */
 int ddlog_internal_get_max_buf_num(void){
     return DDLOG_MAX_BUF_NUM;
 }
 
+/**
+ * \brief Returns with the initialization status of the library.
+ * \return 1 if the library initialization has been performed, 0 otherwisea
+ */
 int ddlog_internal_is_lib_inited(void){
     return (ddlog_lib_inited > 0);
 }
 
+/**
+ * \brief Returns with the logging state of the library
+ * \return 1 if the logging is enabled, 0 if the logging is disabled.
+ */
 int ddlog_internal_is_logging_enabled(void){
     return ddlog_enabled;
 }
 
-
+/**
+ * \brief Returns with the thread name stored in TLS
+ * \return The thread name set for the calling thread.
+ */
 char* ddlog_internal_get_thread_name(void){
     return ddlog_thread_name;
 }
 
+/**
+ * \brief Returns the default logging buffer pointer.
+ * \return Pointer to the default log buffer.
+ */
 ddlog_buffer_t* ddlog_internal_get_default_buf(void){
     return ddlog_default_buf;
 }
 
+/**
+ * \brief Returns the id of the default log buffer.
+ * \return The id of the default log buffer.
+ */
 ddlog_buffer_id_t ddlog_internal_get_default_buf_id(void){
     return ddlog_default_buf_id;
 }
@@ -860,7 +928,8 @@ ddlog_buffer_id_t ddlog_internal_get_default_buf_id(void){
  * \brief Provides the buffer pointer by buffer id
  *
  * \param buffer_id The id of the log buffer
- * 
+ * \return Pointer to the buffer with the specified id.
+ *
  * Returns with the buffer pointer by the specified id value
  */
 ddlog_buffer_t* ddlog_internal_get_buffer_by_id(ddlog_buffer_id_t buffer_id){
@@ -870,144 +939,3 @@ ddlog_buffer_t* ddlog_internal_get_buffer_by_id(ddlog_buffer_id_t buffer_id){
     return NULL;
 }
 
-
-/******************************************************************************
- *
- * I N T E R N A L  D E B U G  functions
- *
- ******************************************************************************/
-
-ddlog_buffer_t* ddlog_dbg_get_default_buffer(void){
-    return ddlog_default_buf;
-}
-
-void ddlog_dbg_print_event(FILE* stream, ddlog_event_t* event){
-    char buffer[256];
-    ddlog_display_format_event_str(event, buffer, sizeof(buffer));
-    if (buffer[0] != '\0'){
-        fprintf(stream, "%s\n", buffer);
-    }
-}
-
-void ddlog_dbg_print_buffer(FILE* stream, ddlog_buffer_t* buffer){
-    int res = 0;
-    int start = 1;
-    ddlog_event_t* event = NULL;
-
-    if (buffer){
-        res = ddlog_lock_buffer_internal(buffer);
-        if (res){
-            return;
-        }
-        fprintf(stream, "--------------------------------------------------\n");
-        fprintf(stream, " Buffer head         : %p\n", (void*) buffer->head);
-        fprintf(stream, " Buffer next         : %p\n", (void*) buffer->next_write);
-        fprintf(stream, " Buffer size         : %u\n", (unsigned int) buffer->buffer_size);
-        fprintf(stream, " Buffer wrapped      : %d\n", buffer->wrapped);
-        fprintf(stream, " Buffer event locked : %d\n", buffer->event_locked);
-        fprintf(stream, "--------------------------------------------------\n");
-        event = buffer->head;
-        while(event){
-            if (event == buffer->head){
-                if (start == 1){
-                    start = 0;
-                    ddlog_dbg_print_event(stream, event);
-                    event = event->next;
-                } else {
-                    event = NULL;
-                }
-            } else {
-                ddlog_dbg_print_event(stream, event);
-                event = event->next;
-            }
-        }
-
-        res = ddlog_unlock_buffer_internal(buffer);
-    } else {
-        fprintf(stream, "The buffer is not initialized\n");
-    }
-}
-
-
-void ddlog_dbg_print_lib_status(FILE* stream){
-    if (stream == NULL){
-        return;
-    }
-    fprintf(stream, "--------------------------------------------------\n");
-    fprintf(stream, "                   Library status\n");
-    fprintf(stream, "--------------------------------------------------\n");
-    fprintf(stream, "ddlog_lib_inited  : %d\n", ddlog_lib_inited);
-    fprintf(stream, "ddlog_global_lock : 0x%08x\n", ddlog_global_lock);
-    fprintf(stream, "ddlog_enabled     : %d\n", ddlog_enabled);
-}
-
-void ddlog_dbg_print_buffer_status(FILE* stream, const ddlog_buffer_t* buffer){
-    if (stream == NULL || buffer == NULL){
-        return;
-    }
-    fprintf(stream, "--------------------------------------------------\n");
-    fprintf(stream, "                   Buffer status\n");
-    fprintf(stream, "--------------------------------------------------\n");
-    fprintf(stream, "Buffer head         : %p\n", (void*) buffer->head);
-    fprintf(stream, "Buffer next         : %p\n", (void*) buffer->next_write);
-    fprintf(stream, "Buffer size         : %u\n", (unsigned int) buffer->buffer_size);
-    fprintf(stream, "Buffer wrapped      : %d\n", buffer->wrapped);
-    fprintf(stream, "Buffer event locked : %d\n", buffer->event_locked);
-    fprintf(stream, "Buffer lock:        : 0x%08x\n", buffer->lock);
-}
-
-void ddlog_dbg_print_buffers(FILE* stream){
-    int i = 0;
-    int start = 1;
-    ddlog_event_t* event = NULL;
-
-    if (stream == NULL){
-        return;
-    }
-
-    ddlog_dbg_print_lib_status(stream);
-    if (ddlog_lib_inited){
-        ddlog_lock_global(0);
-        fprintf(stream, "\n(*) Grab global lock...\n\n");
-        ddlog_dbg_print_lib_status(stream);
-        fprintf(stream, "\n");
-        fprintf(stream, "==================================================\n");
-        fprintf(stream, "                  DDLOG buffers\n");
-        fprintf(stream, "==================================================\n");
-        for (i = 0; i < DDLOG_MAX_BUF_NUM; i++){
-            fprintf(stream, "Buffer index: %d\n", i);
-            if (ddlog_buffers[i] == NULL){
-                fprintf(stream, "This buffer is not initialized.\n");
-            } else {
-                ddlog_dbg_print_buffer_status(stream, ddlog_buffers[i]);
-                fprintf(stream, "\n(*) Grab buffer lock...\n\n");
-                ddlog_lock_buffer_internal(ddlog_buffers[i]);
-                ddlog_dbg_print_buffer_status(stream, ddlog_buffers[i]);
-                fprintf(stream, "--------------------------------------------------\n");
-                fprintf(stream, "Contents of this buffer\n");
-                fprintf(stream, "--------------------------------------------------\n");
-                event = ddlog_buffers[i]->head;
-                start = 1;
-                while(event){
-                    if (event == ddlog_buffers[i]->head){
-                        if (start == 1){
-                            start = 0;
-                            ddlog_dbg_print_event(stream, event);
-                            event = event->next;
-                        } else {
-                            event = NULL;
-                        }
-                    } else {
-                        ddlog_dbg_print_event(stream, event);
-                        event = event->next;
-                    }
-                }
-                ddlog_unlock_buffer_internal(ddlog_buffers[i]);
-            }
-            fprintf(stream, "--------------------------------------------------\n");
-        }
-        ddlog_unlock_global();
-    } else {
-        fprintf(stream, "The ddlog library has not been initialized\n");
-    }
-}

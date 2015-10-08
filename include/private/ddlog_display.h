@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <sys/time.h>
 #include "ddlog.h"
-#include "ddlog_internal.h"
+#include "private/ddlog_internal.h"
 
 
 void ddlog_display_event(FILE* stream, const ddlog_event_t* event);

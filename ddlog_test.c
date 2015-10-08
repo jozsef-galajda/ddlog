@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014 Jozsef Galajda <jgalajda@pannongsm.hu>
+ * Copyright (c) 2015 Jozsef Galajda <jozsef.galajda@gmail.com>
  * All rights reserved.
  */
 
@@ -18,10 +18,10 @@
 
 #include "ddlog.h"
 #include "ddlog_ext.h"
-#include "ddlog_internal.h"
-#include "ddlog_debug.h"
-#include "ddlog_display.h"
-#include "ddlog_display_debug.h"
+#include "private/ddlog_internal.h"
+#include "private/ddlog_debug.h"
+#include "private/ddlog_display.h"
+#include "private/ddlog_display_debug.h"
 
 
 int start = 0;
@@ -40,7 +40,7 @@ void test2(){
     ddlog_log("alma7");
     ddlog_log("alma8");
     ddlog_log("alma9");
-    ddlog_dbg_print_buffer(stderr, ddlog_dbg_get_default_buffer());
+    ddlog_dbg_print_buffer(stderr, ddlog_internal_get_default_buf());
 }
 
 pid_t gettid(void){

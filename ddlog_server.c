@@ -1,8 +1,14 @@
 /*
- * Copyright (c) 2014 Jozsef Galajda <jgalajda@pannongsm.hu>
+ * Copyright (c) 2015 Jozsef Galajda <jozsef.galajda@gmail.com>
  * All rights reserved.
  */
 
+/**
+ * \file ddlog_server.c
+ * \brief ddlog library log display console/server implementation
+ *
+ * This file contains the implementation of the log console tcp server.
+ */
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <arpa/inet.h>
@@ -13,10 +19,10 @@
 #include <stdlib.h>
 #include <errno.h>
 #include "ddlog.h"
-#include "ddlog_internal.h"
-#include "ddlog_display.h"
-#include "ddlog_display_debug.h"
-#include "ddlog_debug.h"
+#include "private/ddlog_internal.h"
+#include "private/ddlog_display.h"
+#include "private/ddlog_display_debug.h"
+#include "private/ddlog_debug.h"
 
 pthread_t ddlog_server_thread;
 static int server_port = 0;
@@ -41,11 +47,11 @@ void ddlog_server_print_cmd_footer(FILE* stream);
 static ddlog_server_menu_item ddlog_server_menu[] = {
     {"[1] List log buffers", NULL},
     {"[2] Select active buffer", NULL},
-    {"[3] Print logs from the active buffer",NULL}, 
-    {"[4] Print logs from all buffers",NULL}, 
-    {"[5] Reset (clear) the active buffer",NULL}, 
-    {"[6] Reset (clear) all buffers",NULL}, 
-    {"[7] Enable/disable logging", NULL}, 
+    {"[3] Print logs from the active buffer",NULL},
+    {"[4] Print logs from all buffers",NULL},
+    {"[5] Reset (clear) the active buffer",NULL},
+    {"[6] Reset (clear) all buffers",NULL},
+    {"[7] Enable/disable logging", NULL},
     {"[q] Close connection", NULL}
 };
 
@@ -105,10 +111,10 @@ void ddlog_server_handle_connection(int socket){
     int fd = -1;
     int max_buf_num = 0;
     char answer[8] = {0};
-                
+
     fd = dup(socket);
     stream = fdopen(fd, "w");
-                
+
     if (stream == NULL){
         close(fd);
         return;
@@ -171,7 +177,7 @@ void ddlog_server_handle_connection(int socket){
                 ddlog_server_print_cmd_header(stream, "Reset the active buffer");
                 ddlog_reset_buffer_id(active_buffer);
                 fprintf(stream, "Active buffer: %d\n\n", active_buffer);
-                fprintf(stream, "Reset has been completed.\n"); 
+                fprintf(stream, "Reset has been completed.\n");
                 ddlog_server_print_cmd_footer(stream);
                 break;
             case '6':
@@ -179,7 +185,7 @@ void ddlog_server_handle_connection(int socket){
                 for (j = 0; j < max_buf_num; j++){
                     ddlog_reset_buffer_id(j);
                 }
-                fprintf(stream, "Reset has been completed.\n"); 
+                fprintf(stream, "Reset has been completed.\n");
                 ddlog_server_print_cmd_footer(stream);
                 break;
             case '7':

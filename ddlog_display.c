@@ -1,8 +1,15 @@
 /*
- * Copyright (c) 2014 Jozsef Galajda <jgalajda@pannongsm.hu>
+ * Copyright (c) 2015 Jozsef Galajda <jozsef.galajda@gmail.com>
  * All rights reserved.
  */
 
+/**
+ * \file ddlog_display.c
+ * \brief ddlog library event formatting and printing apis
+ *
+ * This file contains the implementation of the APIs related to
+ * event formatting and printout.
+ */
 #include <stdio.h>
 #include <string.h>
 #include <sys/time.h>
@@ -10,11 +17,19 @@
 #include <pthread.h>
 
 #include "ddlog.h"
-#include "ddlog_internal.h"
-#include "ddlog_display.h"
+#include "private/ddlog_internal.h"
+#include "private/ddlog_display.h"
 
 int ddlog_display_indention_enabled = 0;
 
+/**
+ * \brief Format a timestamp string
+ * \param buffer The timestamp string is printed into this buffer
+ * \param size The buffer size
+ * \param t The timeval structure containing the time information
+ *
+ * Generates a timestamp string from a timeval structure.
+ */
 void ddlog_display_format_timestamp(char* buffer, size_t size, const struct timeval* t){
     struct tm bdt;
     size_t len = 0;
@@ -27,7 +42,14 @@ void ddlog_display_format_timestamp(char* buffer, size_t size, const struct time
     len = strlen(buffer);
     snprintf(buffer + len, size - len - 1, ".%-6ld", t->tv_usec);
 }
-
+/**
+ * \brief Formats an indent string
+ * \param buffer The buffer into which the indent string is printed
+ * \param size The size of the buffer
+ * \param indent_level The level of the indention
+ *
+ * Generates the string used for indention.
+ */
 void ddlog_display_format_indent(char* buffer, size_t size, uint8_t indent_level){
     memset(buffer, 0, size);
     buffer[0] = ' ';
@@ -36,6 +58,14 @@ void ddlog_display_format_indent(char* buffer, size_t size, uint8_t indent_level
     }
 }
 
+/**
+ * \brief Generates the event string for a specific event.
+ * \param event The event to be printed
+ * \param buffer The output buffer
+ * \param buffer_size The size of the output buffer
+ *
+ * Formats the event string and print it into the provided buffer.
+ */
 void ddlog_display_format_event_str(const ddlog_event_t* event, char* buffer, size_t buffer_size){
     char timestamp_str[30];
     char indent_str[30];
@@ -51,14 +81,22 @@ void ddlog_display_format_event_str(const ddlog_event_t* event, char* buffer, si
     snprintf(buffer, buffer_size - 1,
             "%s%s[%s:%s:%u]: %s",
             timestamp_str,
-            indent_str, 
+            indent_str,
             event->thread_name[0] != '\0' ? event->thread_name : "-",
             event->function_name[0] != '\0' ? event->function_name : "-",
             event->line_number,
             event->message[0] != '\0' ? event->message : "-");
 }
 
-
+/**
+ * \brief Prints out a specific event into a stream.
+ * \param stream The stream into which the event is printed
+ * \param event The event to be printed
+ *
+ * Prints out the event into a specified stream. If the event is
+ * an extended one, the print callback is also called to generate the
+ * event body from the event data.
+ */
 void ddlog_display_event(FILE* stream, const ddlog_event_t* event){
     char buffer[256];
 
@@ -73,12 +111,19 @@ void ddlog_display_event(FILE* stream, const ddlog_event_t* event){
     }
 }
 
-/* print the defaul buffer */
+/**
+ * \brief Prints out the default log buffer into a stream.
+ * \param stream The stream into the default log buffer is printed.
+ */
 void ddlog_display_print_buffer(FILE* stream){
-    ddlog_display_print_buffer_id(stream, 0);
+    ddlog_display_print_buffer_id(stream, ddlog_internal_get_default_buf_id());
 }
 
-/*print a buffer with a specified id */
+/**
+ * \brief Prints a buffer specified by the buffer id into a stream.
+ * \param stream The stream into which the log buffer is printed
+ * \param buffer_id The id of the buffer to be printed.
+ */
 void ddlog_display_print_buffer_id(FILE* stream, ddlog_buffer_id_t buffer_id){
     ddlog_event_t* event = NULL, *start = NULL;
     int res = 0;
@@ -127,7 +172,6 @@ void ddlog_display_print_buffer_id(FILE* stream, ddlog_buffer_id_t buffer_id){
 
 /**
  * \brief Print the buffer list and status
- *
  * \param stream The stream to print the buffer list into
  *
  * Prints a short buffer list and status into the stream provided as a parameter.
@@ -141,10 +185,16 @@ void ddlog_display_print_buffer_list(FILE* stream){
     }
 }
 
+/**
+ * \brief Enables the usage of the event indention during printout.
+ */
 void ddlog_display_enable_indention(void){
     ddlog_display_indention_enabled = 1;
 }
 
+/**
+ * \brief Disables the usage of the event indention during printout.
+ */
 void ddlog_display_disable_indention(void){
     ddlog_display_indention_enabled = 0;
 }

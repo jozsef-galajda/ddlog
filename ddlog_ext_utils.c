@@ -1,3 +1,15 @@
+/*
+ * Copyright (c) 2015 Jozsef Galajda <jozsef.galajda@gmail.com>
+ * All rights reserved.
+ */
+
+/**
+ * \file ddlog_ext_utils.c
+ * \brief ddlog library built-in extended event print callbacks.
+ *
+ * This file contains the implementation of print callbacks for the
+ * built-in extended events.
+ */
 #include <stdio.h>
 #include <string.h>
 #include <execinfo.h>
@@ -16,7 +28,7 @@ void ddlog_ext_display_hex_dump(FILE* stream, void* datap, size_t size){
     fprintf(stream, "\t        +0          +4          +8          +c            0   4   8   c   \n");
     fprintf(stream, "\t        ------------------------------------------------  ----------------\n");
 
-    ascii = buffer + 58; 
+    ascii = buffer + 58;
     memset(buffer, ' ', 58 + 16);
     buffer[58 + 16] = '\n';
     buffer[58 + 17] = '\0';
@@ -29,23 +41,23 @@ void ddlog_ext_display_hex_dump(FILE* stream, void* datap, size_t size){
         if (j == 16) {
             fprintf(stream, "\t%s", buffer);
             memset(buffer, ' ', 58 + 16);
-            sprintf(temp, "+%04x", i); 
-            memcpy(buffer, temp, 5); 
+            sprintf(temp, "+%04x", i);
+            memcpy(buffer, temp, 5);
             j = 0;
         }
 
         sprintf(temp, "%02x", 0xff & data[i]);
-        memcpy(buffer + 8 + (j * 3), temp, 2); 
+        memcpy(buffer + 8 + (j * 3), temp, 2);
         if ((data[i] > 31) && (data[i] < 127)){
             ascii[j] = data[i];
         } else{
             ascii[j] = '.';
         }
-    }   
+    }
 
     if (j != 0) {
         fprintf(stream, "\t%s", buffer);
-    }   
+    }
 }
 
 

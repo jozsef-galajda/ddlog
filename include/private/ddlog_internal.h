@@ -13,6 +13,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <pthread.h>
+#include <sys/time.h>
 
 #include "ddlog.h"
 #include "ddlog_ext.h"
@@ -59,7 +60,7 @@ typedef struct ddlog_buffer_t {
 } ddlog_buffer_t;
 
 typedef enum {
-    DDLOG_LOCK_UNINITED = 0, 
+    DDLOG_LOCK_UNINITED = 0,
     DDLOG_LOCK_UNLOCKED = 1,
     DDLOG_LOCK_SIMPLE = 2,
     DDLOG_LOCK_FULL = 3
@@ -71,9 +72,9 @@ int ddlog_reset_buffer_internal(ddlog_buffer_t* log_buffer);
 void ddlog_cleanup_buffer_internal(ddlog_buffer_t* buffer);
 void ddlog_reset_event_internal(ddlog_event_t* event);
 
-int ddlog_log_internal(ddlog_buffer_t* log_buffer, const char* thread, 
-        const char* function, unsigned int line_num, 
-        const char* message, void* ext_data, size_t ext_data_size, 
+int ddlog_log_internal(ddlog_buffer_t* log_buffer, const char* thread,
+        const char* function, unsigned int line_num,
+        const char* message, void* ext_data, size_t ext_data_size,
         ddlog_ext_event_type_t event_type);
 
 int ddlog_lock_buffer_internal(ddlog_buffer_t* buffer);

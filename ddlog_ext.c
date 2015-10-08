@@ -1,19 +1,50 @@
 /*
- * Copyright (c) 2014 Jozsef Galajda <jgalajda@pannongsm.hu>
+ * Copyright (c) 2015 Jozsef Galajda <jozsef.galajda@gmail.com>
  * All rights reserved.
  */
 
+/**
+ * \file ddlog_ext.c
+ * \brief ddlog library extended event handling
+ *
+ * This file contains the implementation of the apis
+ * related to extended event handling.
+ *
+ * Extended events are events/logs containing some sort of binary data
+ * and a callback function capable of printing out the event data
+ * in a readable format. The event itself is stored as a binary data and
+ * only formatted when a print of the event is needed.
+ *
+ * There are built-in extended events and user-defined extended events.
+ * Bult-in:
+ *  backtrace: the event contains a stack trace
+ *  hexdump: the event contains a binary data printed out as hexdump
+ * User defined:
+ *  The user has to register an extended event by providing a print callback function.
+ *  Logging an extended event means to copy the binary data to the log message.
+ *  When the event has to be printed, the registered print callback function is
+ *  called with the binary data provided at the time of the log call. For example
+ *  one can save a structure in the log and provide a callback function capable of
+ *  printing out the structure in readable format.
+ *  First the user has to register the extended event by calling the
+ *  ddlog_ext_register_event() API. This API returns an event id, which has to be used
+ *  from the code when the event is logged.
+ *
+ *  The built-in events are automatically registered.
+ */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <execinfo.h>
 #include <pthread.h>
 #include "ddlog.h"
-#include "ddlog_internal.h"
+#include "private/ddlog_internal.h"
 #include "ddlog_ext.h"
 
+#define DDLOG_EXT_EVENT_MAX 256
+
 struct {
-    ddlog_ext_event_info_t events[256];
+    ddlog_ext_event_info_t events[DDLOG_EXT_EVENT_MAX];
     unsigned int index;
     ddlog_ext_event_type_t next_event_type;
     unsigned char initialized;
@@ -68,31 +99,50 @@ ddlog_ext_event_type_t ddlog_ext_register_event(ddlog_ext_print_cb_t print_callb
     if (ddlog_ext_events.initialized){
         spin_res = pthread_spin_lock(&ddlog_ext_events.lock);
         if (spin_res == 0){
+            /*
+             * Check for duplicates. If the same callback is already registered,
+             * return with the registered event id.
+             * TODO:
+             * Consider allowing duplicates based on a bool parameter in case the same
+             * function is used to print out more event types.
+             */
             for (i = 0; i < ddlog_ext_events.index; i++){
                 if (ddlog_ext_events.events[i].print_callback == print_callback){
                     dup_found = 1;
                     break;
                 }
             }
+            /*
+             * Either return with the already registered event id
+             * or try to allocate the new event.
+             */
             if (dup_found == 1){
                 ret = ddlog_ext_events.events[i].event_type;
             } else {
-                ddlog_ext_events.events[ddlog_ext_events.index].event_type = ddlog_ext_events.next_event_type;
-                ddlog_ext_events.events[ddlog_ext_events.index].print_callback = print_callback;
-                ddlog_ext_events.index++;
-                ret = ddlog_ext_events.next_event_type++;
+                if (ddlog_ext_events.index < DDLOG_EXT_EVENT_MAX) {
+                    ddlog_ext_events.events[ddlog_ext_events.index].event_type = ddlog_ext_events.next_event_type;
+                    ddlog_ext_events.events[ddlog_ext_events.index].print_callback = print_callback;
+                    ddlog_ext_events.index++;
+                    ret = ddlog_ext_events.next_event_type++;
+                }
             }
 
             spin_res = pthread_spin_unlock(&ddlog_ext_events.lock);
             if (spin_res != 0){
                 ddlog_ext_events.initialized = 0;
+                ret = DDLOG_EXT_EVENT_TYPE_NONE;
             }
         }
     }
     return ret;
 }
 
-
+/**
+ * \brief
+ * \param
+ * \return
+ *
+ */
 int ddlog_ext_log(ddlog_ext_event_type_t event_type, void* ext_data, size_t data_size, const char* message){
     return ddlog_ext_log_long_id(ddlog_internal_get_default_buf_id(),
             event_type, ext_data, data_size, NULL, NULL, 0, message);

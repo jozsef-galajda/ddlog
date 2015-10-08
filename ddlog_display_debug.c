@@ -1,19 +1,23 @@
 /*
- * Copyright (c) 2014 Jozsef Galajda <jgalajda@pannongsm.hu>
+ * Copyright (c) 2015 Jozsef Galajda <jozsef.galajda@gmail.com>
  * All rights reserved.
  */
 
+/**
+ * \file ddlog_display_debug.c
+ * \brief ddlog library display utilites implementation
+ *
+ * This file contains the implementation of the APIs
+ * related to event formatting and printing out buffer contents.
+ * No API from this file is needed in the final/production release.
+ */
 #include <stdio.h>
 #include <sys/time.h>
 #include <pthread.h>
 #include "ddlog.h"
-#include "ddlog_internal.h"
-#include "ddlog_display.h"
-#include "ddlog_display_debug.h"
-
-
-extern ddlog_buffer_t* ddlog_buffers[];
-extern int ddlog_lib_inited;
+#include "private/ddlog_internal.h"
+#include "private/ddlog_display.h"
+#include "private/ddlog_display_debug.h"
 
 
 /**
@@ -77,7 +81,7 @@ void ddlog_display_debug_print_all_buffers(FILE* stream, int print_status, int p
     int start = 1;
     ddlog_event_t* event = NULL;
     ddlog_buffer_t* buffer = NULL;
-    if (ddlog_lib_inited){
+    if (ddlog_internal_is_lib_inited()){
         for (i = 0; i < ddlog_internal_get_max_buf_num(); i++){
             fprintf(stream, "Buffer index: %d\n", i);
             buffer = ddlog_internal_get_buffer_by_id(i);
