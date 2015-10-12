@@ -21,13 +21,12 @@
 #include "ddlog.h"
 #include "private/ddlog_internal.h"
 #include "private/ddlog_display.h"
-#include "private/ddlog_display_debug.h"
-#include "private/ddlog_debug.h"
 
 pthread_t ddlog_server_thread;
 static int server_port = 0;
 static const char* welcome_msg = "\n  >> DDLOG log access server console <<\n\n";
 static const char* ddlog_server_prompt_str = "ddlog> ";
+static int stop_server = 0;
 
 static ddlog_buffer_id_t active_buffer = 0;
 
@@ -52,7 +51,9 @@ static ddlog_server_menu_item ddlog_server_menu[] = {
     {"[5] Reset (clear) the active buffer",NULL},
     {"[6] Reset (clear) all buffers",NULL},
     {"[7] Enable/disable logging", NULL},
-    {"[q] Close connection", NULL}
+    {"[8] Stop logging colsole", NULL},
+    {"[q] Close connection", NULL},
+    {NULL,NULL}
 };
 
 /******************************************************************************
@@ -103,7 +104,6 @@ int read_line(int socket, char* buffer, size_t buffer_len){
 
 
 void ddlog_server_handle_connection(int socket){
-    int i = 0, j = 0;
     char buffer[8];
     int loop = 1;
     int res = 0;
@@ -111,6 +111,7 @@ void ddlog_server_handle_connection(int socket){
     int fd = -1;
     int max_buf_num = 0;
     char answer[8] = {0};
+    ddlog_buffer_id_t j = 0;
 
     fd = dup(socket);
     stream = fdopen(fd, "w");
@@ -123,8 +124,10 @@ void ddlog_server_handle_connection(int socket){
     max_buf_num = ddlog_internal_get_max_buf_num();
 
     while(loop) {
-        for (i = 0; i< 7; i++){
-            fprintf(stream, "%s\n", ddlog_server_menu[i].menu_str);
+        int menu_item_idx = 0;
+        while(ddlog_server_menu[menu_item_idx].menu_str){
+            fprintf(stream, "%s\n", ddlog_server_menu[menu_item_idx].menu_str);
+            menu_item_idx++;
             fflush(stream);
         }
         fprintf(stream, "%s", ddlog_server_prompt_str);
@@ -146,6 +149,7 @@ void ddlog_server_handle_connection(int socket){
             case '2':
                 ddlog_server_print_cmd_header(stream, "Set the active buffer");
                 fprintf(stream, "Buffer id: ");
+                fflush(stream);
                 res = read_line(socket, answer, sizeof(answer));
                 if (res > 0) {
                     char* tail = NULL;
@@ -170,7 +174,7 @@ void ddlog_server_handle_connection(int socket){
                 break;
             case '4':
                 ddlog_server_print_cmd_header(stream, "Show logs from all buffers");
-                ddlog_display_debug_print_all_buffers(stream, 1,1);
+                ddlog_display_print_all_buffers(stream);
                 ddlog_server_print_cmd_footer(stream);
                 break;
             case '5':
@@ -194,6 +198,10 @@ void ddlog_server_handle_connection(int socket){
                 fprintf(stream, "Current logging state: %s\n", ddlog_get_status() ? "Enabled" : "Disabled");
                 ddlog_server_print_cmd_footer(stream);
                 break;
+            case '8':
+                loop = 0;
+                stop_server = 1;
+                break;
             case 'q':
                 loop = 0;
                 break;
@@ -212,6 +220,7 @@ void *ddlog_server_handler(void* data UNUSED){
     struct sockaddr_in server_addr;
     int res = 0;
     ssize_t write_res = -1;
+    char filename[256] = {0};
 
     server_sock = socket(AF_INET, SOCK_STREAM, 0);
     if (server_sock < 0){
@@ -241,9 +250,8 @@ void *ddlog_server_handler(void* data UNUSED){
     {
         struct sockaddr_in sin;
         socklen_t len = sizeof(sin);
-        int res = getsockname(server_sock, (struct sockaddr*)&sin, &len);
-        char filename[256] = {0};
         FILE* f = NULL;
+        int res = getsockname(server_sock, (struct sockaddr*)&sin, &len);
         if (res == -1) {
             fprintf(stderr, "ddlog_server: Failed to get socket information\n");
             return NULL;
@@ -272,10 +280,13 @@ void *ddlog_server_handler(void* data UNUSED){
             fprintf(stderr, "ddlog_server: Error closing client socket\n");
             return NULL;
         }
-        /* allow only to connect once. Needed for memory/valgrind tests.
-         * Remove if not needed */
-        return NULL;
+
+        if (stop_server) {
+            break;
+        }
     }
+    unlink(filename);
+    return NULL;
 }
 
 int ddlog_start_server(void){

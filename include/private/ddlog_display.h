@@ -13,6 +13,7 @@ void ddlog_display_format_event_str(const ddlog_event_t* event, char* buffer, si
 void ddlog_display_print_buffer_id(FILE* stream, ddlog_buffer_id_t buffer_id);
 void ddlog_display_print_buffer(FILE* stream);
 void ddlog_display_print_buffer_list(FILE* stream);
+void ddlog_display_print_all_buffers(FILE* stream);
 
 void ddlog_display_enable_indention(void);
 void ddlog_display_disable_indention(void);

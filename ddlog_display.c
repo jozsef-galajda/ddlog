@@ -120,6 +120,25 @@ void ddlog_display_print_buffer(FILE* stream){
 }
 
 /**
+ * \brief Prints the content of all the buffers into the stream
+ * \param stream The output stream
+ *
+ * Prints all the log buffers into the stream.
+ */
+void ddlog_display_print_all_buffers(FILE* stream){
+    int max_buf_num = ddlog_internal_get_max_buf_num();
+    ddlog_buffer_id_t buffer_id = 0;
+    for (buffer_id = 0; buffer_id < max_buf_num; buffer_id++){
+        if (ddlog_internal_get_buffer_by_id(buffer_id)){
+            fprintf(stream, "Buffer id: %d:\n", buffer_id);
+            ddlog_display_print_buffer_id(stream, buffer_id);
+        } else {
+            fprintf(stream, "Buffer id: %d is not in use.\n", buffer_id);
+        }
+    }
+}
+
+/**
  * \brief Prints a buffer specified by the buffer id into a stream.
  * \param stream The stream into which the log buffer is printed
  * \param buffer_id The id of the buffer to be printed.

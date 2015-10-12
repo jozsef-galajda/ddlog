@@ -8,8 +8,6 @@
  * \brief ddlog library main implementation
  *
  * This file contains the implementation of the main APIs.
- * At the beginning of the file one can find the public function implementations,
- * the second part contains the internal api implementations.
  */
 #include <stdlib.h>
 #include <string.h>
