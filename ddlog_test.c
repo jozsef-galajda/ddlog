@@ -40,7 +40,7 @@ void test2(){
     ddlog_log("alma7");
     ddlog_log("alma8");
     ddlog_log("alma9");
-    ddlog_dbg_print_buffer(stderr, ddlog_internal_get_default_buf());
+    ddlog_display_print_buffer(stderr);
 }
 
 pid_t gettid(void){
@@ -119,7 +119,7 @@ void test5(){
     ddlog_init(100);
     ddlog_thread_init("main thread");
 
-    ddlog_dbg_print_buffers(stdout);
+    ddlog_display_print_all_buffers(stdout);
 
     printf("(*) Adding log messages (8)\n\n");
     DDLOG_ENTRY;
@@ -132,7 +132,7 @@ void test5(){
     DDLOG_LEAVE;
     printf("================================================================================\n");
     printf("================================================================================\n");
-    ddlog_dbg_print_buffers(stdout);
+    ddlog_display_print_all_buffers(stdout);
     ddlog_reset();
     DDLOG("Test log2: alma1");
     DDLOG("Test log2: alma2");
@@ -148,7 +148,7 @@ void test5(){
     DDLOG("Test log2: alma10");
     printf("================================================================================\n");
     printf("================================================================================\n");
-    ddlog_dbg_print_buffers(stdout);
+    ddlog_display_print_all_buffers(stdout);
     ddlog_reset();
     DDLOG("Test log2: alma1");
     DDLOG("Test log2: alma2");
@@ -164,7 +164,7 @@ void test5(){
     DDLOG("Test log2: alma10");
     printf("================================================================================\n");
     printf("================================================================================\n");
-    ddlog_dbg_print_buffers(stdout);
+    ddlog_display_print_all_buffers(stdout);
     ddlog_start_server();
     ddlog_wait_for_server();
     ddlog_cleanup();
